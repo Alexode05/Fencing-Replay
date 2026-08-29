@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Replay — salle d'armes</title>
+<style>
+  :root{
+    --fond:#0D1216;
+    --surface:#161F26;
+    --relief:#1E2A33;
+    --trait:#2B3A45;
+    --metal:#93A5B2;
+    --metal-bas:#54666F;
+    --vert:#17C06A;
+    --rouge:#EF3B2C;
+    --texte:#E6EDF2;
+    --faible:#7E93A1;
+
+    --display:"Bahnschrift SemiCondensed","Bahnschrift","Arial Narrow",
+              "Segoe UI",system-ui,sans-serif;
+    --corps:"Segoe UI",system-ui,-apple-system,sans-serif;
+  }
+
+  *{box-sizing:border-box;margin:0;padding:0}
+
+  html,body{height:100%}
+  body{
+    background:var(--fond);
+    color:var(--texte);
+    font-family:var(--corps);
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+    -webkit-user-select:none;user-select:none;
+    -webkit-tap-highlight-color:transparent;
+  }
+
+  /* ---------------------------------------------------------- bandeau */
+  header{
+    display:flex;align-items:center;gap:14px;
+    padding:10px 16px;
+    border-bottom:1px solid var(--trait);
+    background:var(--surface);
+    flex:none;
+  }
+  .lampes{display:flex;gap:6px;flex:none}
+  .lampe{
+    width:11px;height:11px;border-radius:50%;
+    background:#22303A;
+    box-shadow:inset 0 1px 2px #000;
+    transition:background .25s,box-shadow .25s;
+  }
+  .lampe.verte.on{background:var(--vert);box-shadow:0 0 10px 1px rgba(23,192,106,.75)}
+  .lampe.rouge.on{background:var(--rouge);box-shadow:0 0 10px 1px rgba(239,59,44,.75)}
+
+  h1{
+    font-family:var(--display);
+    font-size:17px;font-weight:600;
+    letter-spacing:.14em;text-transform:uppercase;
+    flex:none;
+  }
+  .etat{
+    font-family:var(--display);
+    font-size:14px;letter-spacing:.06em;
+    color:var(--faible);
+    margin-left:auto;
+    text-align:right;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .etat b{color:var(--texte);font-weight:600}
+
+  /* ------------------------------------------------------------ vidéo */
+  .scene{
+    flex:1;min-height:0;position:relative;
+    background:#05080A;
+    display:flex;align-items:center;justify-content:center;
+  }
+  video{max-width:100%;max-height:100%;display:block;background:#05080A}
+  video:not([src]){display:none}
+
+  .vide{
+    position:absolute;inset:0;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:10px;padding:24px;text-align:center;
+  }
+  .vide.cache{display:none}
+  .vide strong{
+    font-family:var(--display);
+    font-size:22px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;
+  }
+  .vide span{color:var(--faible);font-size:14px;max-width:34ch;line-height:1.5}
+  .vide.alerte strong{color:var(--rouge)}
+
+  .vitesse-hud{
+    position:absolute;top:14px;right:16px;
+    font-family:var(--display);
+    font-size:30px;font-weight:600;letter-spacing:.02em;
+    color:rgba(230,237,242,.5);
+    pointer-events:none;
+    font-variant-numeric:tabular-nums;
+  }
+
+  /* ---------------------------------------- piste : barre de défilement */
+  .piste{
+    flex:none;position:relative;height:38px;cursor:pointer;
+    background:linear-gradient(180deg,#3A4A55 0%,#2A363F 42%,#202A32 100%);
+    border-top:1px solid #465864;
+    border-bottom:1px solid #0A0E11;
+    touch-action:none;
+  }
+  .piste .marque{
+    position:absolute;top:0;bottom:0;width:1px;
+    background:rgba(147,165,178,.34);
+  }
+  .piste .marque.centre{
+    width:2px;background:rgba(147,165,178,.62);
+  }
+  .piste .zone-fin{
+    position:absolute;top:0;bottom:0;width:14.28%;
+    background:repeating-linear-gradient(115deg,
+      rgba(147,165,178,.11) 0 6px,transparent 6px 13px);
+  }
+  .piste .zone-fin.g{left:0}
+  .piste .zone-fin.d{right:0}
+  .piste .rempli{
+    position:absolute;top:0;bottom:0;left:0;width:0;
+    background:linear-gradient(180deg,rgba(23,192,106,.34),rgba(23,192,106,.13));
+    border-right:1px solid rgba(23,192,106,.5);
+  }
+  .piste .tete{
+    position:absolute;top:-4px;bottom:-4px;left:0;width:2px;
+    background:var(--texte);
+    box-shadow:0 0 6px rgba(0,0,0,.9);
+    transform:translateX(-1px);
+  }
+  .piste .tete::before{
+    content:"";position:absolute;top:0;left:50%;
+    width:9px;height:9px;background:var(--texte);
+    transform:translate(-50%,-4px) rotate(45deg);
+  }
+  .temps{
+    display:flex;justify-content:space-between;
+    padding:5px 16px 0;
+    font-family:var(--display);
+    font-size:13px;letter-spacing:.05em;color:var(--faible);
+    font-variant-numeric:tabular-nums;
+    flex:none;
+  }
+
+  /* -------------------------------------------------------- commandes */
+  .commandes{
+    flex:none;
+    display:flex;flex-wrap:wrap;align-items:center;gap:10px;
+    padding:10px 16px 12px;
+  }
+  .groupe{display:flex;gap:6px;align-items:center}
+  .separateur{width:1px;height:30px;background:var(--trait);margin:0 4px}
+
+  button{
+    font-family:var(--display);
+    font-size:15px;font-weight:600;letter-spacing:.06em;
+    color:var(--texte);
+    background:var(--relief);
+    border:1px solid var(--trait);
+    border-radius:5px;
+    padding:0 14px;height:46px;min-width:46px;
+    cursor:pointer;
+    display:inline-flex;align-items:center;justify-content:center;
+    transition:background .12s,border-color .12s;
+  }
+  button:hover{background:#26343E}
+  button:active{background:#2F404B}
+  button:focus-visible{outline:2px solid var(--vert);outline-offset:2px}
+  button.principal{min-width:76px;background:#26343E}
+  button.actif{
+    background:rgba(23,192,106,.16);
+    border-color:var(--vert);
+    color:#8DF0BE;
+  }
+  button:disabled{opacity:.32;cursor:default}
+  .etiquette{
+    font-family:var(--display);font-size:12px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--faible);margin-right:2px;
+  }
+
+  /* ------------------------------------------------------------ clips */
+  .clips{
+    flex:none;
+    display:flex;gap:6px;align-items:center;
+    padding:0 16px 12px;
+    overflow-x:auto;scrollbar-width:thin;
+  }
+  .clips button{height:38px;font-size:13px;padding:0 11px;font-variant-numeric:tabular-nums}
+  .clips button.actif{background:rgba(23,192,106,.16)}
+
+  @media (max-width:640px){
+    .etat{display:none}
+    .commandes{gap:7px;padding:8px 10px 10px}
+    button{height:52px;padding:0 12px}
+    .clips{padding:0 10px 10px}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{transition:none!important}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="lampes">
+    <span class="lampe verte" id="lampeVerte"></span>
+    <span class="lampe rouge" id="lampeRouge"></span>
+  </div>
+  <h1>Replay</h1>
+  <div class="etat" id="etat">Connexion…</div>
+</header>
+
+<div class="scene">
+  <video id="video" playsinline preload="auto"></video>
+  <div class="vide" id="vide">
+    <strong>Aucun clip</strong>
+    <span id="videTexte">Déclenche « Sauvegarder la relecture » dans OBS : le clip apparaîtra ici tout seul.</span>
+  </div>
+  <div class="vitesse-hud" id="hud">0,25×</div>
+</div>
+
+<div class="piste" id="piste">
+  <div class="zone-fin g"></div>
+  <div class="zone-fin d"></div>
+  <div class="rempli" id="rempli"></div>
+  <div class="marque" style="left:14.28%"></div>
+  <div class="marque" style="left:35.71%"></div>
+  <div class="marque centre" style="left:50%"></div>
+  <div class="marque" style="left:64.28%"></div>
+  <div class="marque" style="left:85.71%"></div>
+  <div class="tete" id="tete"></div>
+</div>
+
+<div class="temps">
+  <span id="tempsCourant">0,000 s</span>
+  <span id="tempsTotal">0,000 s</span>
+</div>
+
+<div class="commandes">
+  <div class="groupe">
+    <button id="btnRejouer" title="Revenir au début (R)">↺</button>
+    <button id="btnRecul" title="Image précédente (←)">◀|</button>
+    <button id="btnLecture" class="principal" title="Lecture / pause (Espace)">▶</button>
+    <button id="btnAvance" title="Image suivante (→)">|▶</button>
+  </div>
+
+  <div class="separateur"></div>
+
+  <div class="groupe">
+    <span class="etiquette">Vitesse</span>
+    <button class="vitesse" data-v="1">1×</button>
+    <button class="vitesse" data-v="0.5">½</button>
+    <button class="vitesse actif" data-v="0.25">¼</button>
+    <button class="vitesse" data-v="0.1">⅒</button>
+  </div>
+
+  <div class="separateur"></div>
+
+  <div class="groupe">
+    <button id="btnBoucle" class="actif" title="Boucle (L)">Boucle</button>
+    <button id="btnAuto" class="actif" title="Charger le nouveau clip automatiquement (N)">Auto</button>
+    <button id="btnPlein" title="Plein écran (F)">⛶</button>
+  </div>
+</div>
+
+<div class="clips" id="clips"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  const FPS = Number("__FPS__") || 60;
+  const PAS = 1 / FPS;
+  const DOSSIER = "__DOSSIER__";
+
+  const video   = document.getElementById("video");
+  const piste   = document.getElementById("piste");
+  const rempli  = document.getElementById("rempli");
+  const tete    = document.getElementById("tete");
+  const hud     = document.getElementById("hud");
+  const etat    = document.getElementById("etat");
+  const vide    = document.getElementById("vide");
+  const videTxt = document.getElementById("videTexte");
+  const listeEl = document.getElementById("clips");
+  const lampeV  = document.getElementById("lampeVerte");
+  const lampeR  = document.getElementById("lampeRouge");
+  const tCourant= document.getElementById("tempsCourant");
+  const tTotal  = document.getElementById("tempsTotal");
+
+  const btnLecture = document.getElementById("btnLecture");
+  const btnBoucle  = document.getElementById("btnBoucle");
+  const btnAuto    = document.getElementById("btnAuto");
+
+  let clips = [];
+  let courant = null;
+  let vitesse = 0.25;
+  let auto = true;
+  let premierScan = true;
+
+  // ------------------------------------------------------------ affichage
+
+  const fmt = s => (isFinite(s) ? s.toFixed(3).replace(".", ",") : "0,000") + " s";
+
+  function majTemps(){
+    const d = video.duration;
+    const t = video.currentTime;
+    tCourant.textContent = fmt(t);
+    tTotal.textContent   = fmt(d);
+    const p = (isFinite(d) && d > 0) ? Math.min(1, t / d) * 100 : 0;
+    rempli.style.width = p + "%";
+    tete.style.left = p + "%";
+  }
+
+  function majHud(){
+    const libelles = {1:"1×", 0.5:"½ ×", 0.25:"¼ ×", 0.1:"⅒ ×"};
+    hud.textContent = libelles[vitesse] || vitesse + "×";
+  }
+
+  function majBoutonLecture(){
+    btnLecture.textContent = video.paused ? "▶" : "❚❚";
+  }
+
+  function messageVide(titre, texte, alerte){
+    vide.classList.remove("cache");
+    vide.classList.toggle("alerte", !!alerte);
+    vide.querySelector("strong").textContent = titre;
+    videTxt.textContent = texte;
+  }
+
+  // -------------------------------------------------------------- lecture
+
+  function charger(nom, lire){
+    courant = nom;
+    video.src = "/clip/" + encodeURIComponent(nom);
+    video.playbackRate = vitesse;
+    video.load();
+    vide.classList.add("cache");
+    etat.innerHTML = "<b>" + nom + "</b>";
+    dessinerClips();
+    if (lire !== false){
+      video.play().catch(()=>{ majBoutonLecture(); });
+    }
+  }
+
+  function pas(sens){
+    if (!video.src || !isFinite(video.duration)) return;
+    video.pause();
+    const cible = video.currentTime + sens * PAS;
+    video.currentTime = Math.max(0, Math.min(video.duration - 0.0005, cible));
+  }
+
+  function saut(secondes){
+    if (!video.src || !isFinite(video.duration)) return;
+    video.currentTime = Math.max(0, Math.min(video.duration - 0.0005,
+                                            video.currentTime + secondes));
+  }
+
+  function basculerLecture(){
+    if (!video.src) return;
+    if (video.paused){
+      video.playbackRate = vitesse;
+      video.play().catch(()=>{});
+    } else {
+      video.pause();
+    }
+  }
+
+  function reglerVitesse(v){
+    vitesse = v;
+    video.playbackRate = v;
+    document.querySelectorAll(".vitesse").forEach(b => {
+      b.classList.toggle("actif", Number(b.dataset.v) === v);
+    });
+    majHud();
+  }
+
+  // --------------------------------------------------------------- piste
+
+  let glisse = false;
+  function chercher(ev){
+    if (!isFinite(video.duration)) return;
+    const r = piste.getBoundingClientRect();
+    const x = Math.max(0, Math.min(r.width, ev.clientX - r.left));
+    video.currentTime = (x / r.width) * video.duration;
+    majTemps();
+  }
+  piste.addEventListener("pointerdown", e => {
+    glisse = true; piste.setPointerCapture(e.pointerId);
+    video.pause(); chercher(e);
+  });
+  piste.addEventListener("pointermove", e => { if (glisse) chercher(e); });
+  piste.addEventListener("pointerup",   e => { glisse = false; });
+  piste.addEventListener("pointercancel", () => { glisse = false; });
+
+  // --------------------------------------------------------------- clips
+
+  function dessinerClips(){
+    listeEl.innerHTML = "";
+    clips.forEach((c, i) => {
+      const b = document.createElement("button");
+      b.textContent = (i === 0 ? "▸ " : "") + c.heure;
+      b.title = c.nom;
+      b.classList.toggle("actif", c.nom === courant);
+      b.addEventListener("click", () => charger(c.nom, true));
+      listeEl.appendChild(b);
+    });
+  }
+
+  async function sonder(){
+    try{
+      const r = await fetch("/api/clips", {cache:"no-store"});
+      if (!r.ok) throw new Error("réponse " + r.status);
+      const d = await r.json();
+      lampeV.classList.add("on");
+      lampeR.classList.remove("on");
+
+      const nouveau = d.clips.length && (!clips.length || d.clips[0].nom !== clips[0].nom);
+      clips = d.clips;
+
+      if (!clips.length){
+        courant = null;
+        video.removeAttribute("src");
+        messageVide("Aucun clip",
+          "Déclenche « Sauvegarder la relecture » dans OBS. Dossier surveillé : " + d.dossier);
+        dessinerClips();
+        return;
+      }
+
+      if (nouveau && (auto || premierScan)){
+        charger(clips[0].nom, true);
+      } else {
+        dessinerClips();
+      }
+      premierScan = false;
+
+    } catch (e){
+      lampeV.classList.remove("on");
+      lampeR.classList.add("on");
+      etat.textContent = "Serveur injoignable";
+    }
+  }
+
+  // ------------------------------------------------------------ écouteurs
+
+  video.addEventListener("timeupdate", majTemps);
+  video.addEventListener("seeked",     majTemps);
+  video.addEventListener("loadedmetadata", () => {
+    video.playbackRate = vitesse;
+    majTemps();
+  });
+  video.addEventListener("play",  majBoutonLecture);
+  video.addEventListener("pause", majBoutonLecture);
+  video.addEventListener("ended", () => {
+    if (btnBoucle.classList.contains("actif")){
+      video.currentTime = 0;
+      video.play().catch(()=>{});
+    }
+    majBoutonLecture();
+  });
+  video.addEventListener("ratechange", () => {
+    // Certains navigateurs réinitialisent la vitesse après un seek.
+    if (video.playbackRate !== vitesse) video.playbackRate = vitesse;
+  });
+  video.addEventListener("error", () => {
+    messageVide("Format illisible",
+      "Le navigateur ne sait pas lire ce fichier. Dans OBS → Sortie → Enregistrement, "
+      + "choisis le format MP4 et l'encodeur H.264 (audio AAC).", true);
+  });
+
+  document.getElementById("btnLecture").addEventListener("click", basculerLecture);
+  document.getElementById("btnRecul").addEventListener("click", () => pas(-1));
+  document.getElementById("btnAvance").addEventListener("click", () => pas(1));
+  document.getElementById("btnRejouer").addEventListener("click", () => {
+    video.currentTime = 0; video.play().catch(()=>{});
+  });
+  document.querySelectorAll(".vitesse").forEach(b => {
+    b.addEventListener("click", () => reglerVitesse(Number(b.dataset.v)));
+  });
+  btnBoucle.addEventListener("click", () => {
+    btnBoucle.classList.toggle("actif");
+  });
+  btnAuto.addEventListener("click", () => {
+    auto = !auto;
+    btnAuto.classList.toggle("actif", auto);
+  });
+  document.getElementById("btnPlein").addEventListener("click", () => {
+    if (document.fullscreenElement) document.exitFullscreen();
+    else document.documentElement.requestFullscreen().catch(()=>{});
+  });
+
+  document.addEventListener("keydown", e => {
+    if (e.target.tagName === "INPUT") return;
+    const k = e.key.toLowerCase();
+    if (k === " "){ e.preventDefault(); basculerLecture(); }
+    else if (e.key === "ArrowLeft"){  e.preventDefault(); e.shiftKey ? saut(-0.5) : pas(-1); }
+    else if (e.key === "ArrowRight"){ e.preventDefault(); e.shiftKey ? saut(0.5)  : pas(1);  }
+    else if (k === "1") reglerVitesse(1);
+    else if (k === "2") reglerVitesse(0.5);
+    else if (k === "3") reglerVitesse(0.25);
+    else if (k === "4") reglerVitesse(0.1);
+    else if (k === "l") btnBoucle.click();
+    else if (k === "r") document.getElementById("btnRejouer").click();
+    else if (k === "n" && clips.length) charger(clips[0].nom, true);
+    else if (k === "f") document.getElementById("btnPlein").click();
+  });
+
+  majHud();
+  majBoutonLecture();
+  sonder();
+  setInterval(sonder, 800);
+})();
+</script>
+</body>
+</html>
