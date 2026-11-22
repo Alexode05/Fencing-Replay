@@ -1,0 +1,1003 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CEF Vidéo</title>
+<link rel="icon" href="/assets/cef-favicon.png" type="image/png">
+<style>
+  @font-face{
+    font-family:"Open Sauce Sans";
+    font-style:normal;
+    font-weight:400;
+    font-display:swap;
+    src:url("/assets/OpenSauceSans-Regular.ttf") format("truetype");
+  }
+  @font-face{
+    font-family:"Open Sauce Sans";
+    font-style:normal;
+    font-weight:600;
+    font-display:swap;
+    src:url("/assets/OpenSauceSans-SemiBold.ttf") format("truetype");
+  }
+  @font-face{
+    font-family:"Flyer Black Condensed";
+    font-style:normal;
+    font-weight:400;
+    font-display:swap;
+    src:url("/assets/Flyer-Black-Condensed-Regular.ttf") format("truetype");
+  }
+
+  :root{
+    --fond:#0d1425;
+    --surface:#101a2e;
+    --relief:#152036;
+    --relief-haut:#1b2943;
+    --trait:#293859;
+    --accent:#4b99de;
+    --accent-clair:#91c5ff;
+    --accent-fonce:#081c33;
+    --scene:#090e18;
+    --vert:#17c06a;
+    --rouge:#ff9daf;
+    --texte:#f3f7ff;
+    --faible:#8c9dbb;
+    --corps:"Open Sauce Sans",sans-serif;
+    color-scheme:dark;
+  }
+
+  *{box-sizing:border-box;margin:0;padding:0}
+
+  html,body{height:100%}
+  body{
+    background:var(--fond);
+    color:var(--texte);
+    font-family:var(--corps);
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+    -webkit-user-select:none;user-select:none;
+    -webkit-tap-highlight-color:transparent;
+  }
+
+  /* ---------------------------------------------------------- bandeau */
+  header{
+    display:flex;align-items:center;gap:14px;
+    padding:10px 16px;
+    border-bottom:1px solid var(--trait);
+    background:var(--surface);
+    flex:none;
+  }
+  .marque-cef{display:flex;align-items:center;gap:9px;flex:none}
+  .marque-cef img{width:34px;height:34px;margin-block:-6px;object-fit:contain}
+  .voyant{
+    width:9px;height:9px;border-radius:50%;flex:none;
+    background:var(--rouge);
+    box-shadow:0 0 8px #ff9daf77;
+    transition:background .25s,box-shadow .25s;
+  }
+  .voyant.disponible{background:var(--vert);box-shadow:0 0 8px #17c06a77}
+
+  .marque-cef h1{
+    font:400 24px/1 "Flyer Black Condensed",var(--corps);
+    letter-spacing:.012em;text-transform:uppercase;white-space:nowrap;
+    color:#fff;
+    flex:none;
+  }
+  .etat{
+    font-family:var(--corps);
+    font-size:14px;letter-spacing:.06em;
+    color:var(--faible);
+    margin-left:auto;
+    text-align:right;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .etat b{color:var(--texte);font-weight:600}
+
+  /* ------------------------------------------------------------ vidéo */
+  .scene{
+    flex:1;min-height:0;position:relative;
+    background:var(--scene);
+    display:flex;align-items:center;justify-content:center;
+  }
+  video{max-width:100%;max-height:100%;display:block;background:var(--scene)}
+  video:not([src]){display:none}
+
+  .vide{
+    position:absolute;inset:0;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:10px;padding:24px;text-align:center;
+  }
+  .vide.cache{display:none}
+  .vide strong{
+    font-family:var(--corps);
+    font-size:22px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;
+  }
+  .vide span{color:var(--faible);font-size:14px;max-width:34ch;line-height:1.5}
+  .vide.alerte strong{color:var(--rouge)}
+
+  .vitesse-hud{
+    position:absolute;top:14px;right:16px;
+    font-family:var(--corps);
+    font-size:30px;font-weight:600;letter-spacing:.02em;
+    color:#f3f7ff80;
+    pointer-events:none;
+    font-variant-numeric:tabular-nums;
+  }
+
+  /* ---------------------------------------- piste : barre de défilement */
+  .piste{
+    flex:none;position:relative;height:38px;cursor:pointer;
+    background:linear-gradient(180deg,#293859 0%,#1b2943 42%,#152036 100%);
+    border-top:1px solid #324365;
+    border-bottom:1px solid var(--scene);
+    touch-action:none;
+  }
+  .piste .marque{
+    position:absolute;top:0;bottom:0;width:1px;
+    background:#8c9dbb57;
+  }
+  .piste .marque.centre{
+    width:2px;background:#8c9dbb9e;
+  }
+  .piste .zone-fin{
+    position:absolute;top:0;bottom:0;width:14.28%;
+    background:repeating-linear-gradient(115deg,
+      #8c9dbb1c 0 6px,transparent 6px 13px);
+  }
+  .piste .zone-fin.g{left:0}
+  .piste .zone-fin.d{right:0}
+  .piste .rempli{
+    position:absolute;top:0;bottom:0;left:0;width:0;
+    background:linear-gradient(180deg,#4b99de57,#4b99de21);
+    border-right:1px solid #4b99de80;
+  }
+  .piste .tete{
+    position:absolute;top:-4px;bottom:-4px;left:0;width:2px;
+    background:var(--texte);
+    box-shadow:0 0 6px rgba(0,0,0,.9);
+    transform:translateX(-1px);
+  }
+  .piste .tete::before{
+    content:"";position:absolute;top:0;left:50%;
+    width:9px;height:9px;background:var(--texte);
+    transform:translate(-50%,-4px) rotate(45deg);
+  }
+  .temps{
+    display:flex;justify-content:space-between;
+    padding:5px 16px 0;
+    font-family:var(--corps);
+    font-size:13px;letter-spacing:.05em;color:var(--faible);
+    font-variant-numeric:tabular-nums;
+    flex:none;
+  }
+
+  /* -------------------------------------------------------- commandes */
+  .commandes{
+    flex:none;
+    display:flex;flex-wrap:wrap;align-items:center;gap:10px;
+    padding:10px 16px 12px;
+  }
+  .groupe{display:flex;gap:6px;align-items:center}
+  .separateur{width:1px;height:30px;background:var(--trait);margin:0 4px}
+
+  button{
+    font-family:var(--corps);
+    font-size:15px;font-weight:600;letter-spacing:.06em;
+    color:var(--texte);
+    background:var(--relief);
+    border:1px solid var(--trait);
+    border-radius:5px;
+    padding:0 14px;height:46px;min-width:46px;
+    cursor:pointer;
+    display:inline-flex;align-items:center;justify-content:center;
+    transition:background .12s,border-color .12s;
+  }
+  button:hover{background:var(--relief-haut);border-color:#506b97}
+  button:active{background:#293859}
+  button:focus-visible{outline:2px solid var(--accent-clair);outline-offset:2px}
+  button.principal{min-width:76px;background:var(--relief-haut)}
+  button.actif{
+    background:#172d4d;
+    border-color:#426089;
+    color:var(--accent-clair);
+  }
+  button:disabled{opacity:.32;cursor:default}
+  .etiquette{
+    font-family:var(--corps);font-size:12px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--faible);margin-right:2px;
+  }
+
+  /* ------------------------------------------------------------ clips */
+  .clips{
+    flex:none;
+    display:flex;gap:6px;align-items:center;
+    padding:0 16px 12px;
+    overflow-x:auto;scrollbar-width:thin;
+  }
+  .clips button{height:38px;font-size:13px;padding:0 11px;font-variant-numeric:tabular-nums}
+
+  button.bouton-entete{
+    margin-block:-8px;
+    flex:none;
+    height:36px;
+    padding:0 10px;
+    font-size:12px;
+    letter-spacing:normal;
+    white-space:nowrap;
+  }
+  button.bouton-icone{width:36px;min-width:36px;padding:0}
+  button.bouton-icone svg{width:18px;height:18px}
+  button.action-principale{
+    background:var(--accent);
+    border-color:var(--accent);
+    color:var(--accent-fonce);
+  }
+  button.action-principale:hover{
+    background:var(--accent-clair);
+    border-color:var(--accent-clair);
+  }
+
+  dialog{
+    margin:auto;
+    width:min(440px,calc(100% - 32px));
+    max-height:calc(100% - 32px);
+    padding:22px;
+    border:1px solid var(--trait);
+    border-radius:11px;
+    background:var(--relief);
+    color:var(--texte);
+    font-family:var(--corps);
+    box-shadow:0 20px 56px #080d1bbc;
+  }
+  dialog::backdrop{background:#080d1bbc}
+  dialog h2{font-size:20px;font-weight:600;line-height:1.35}
+  dialog p{margin-top:10px;color:#b0bfd7;font-size:14px;line-height:1.55}
+  .actions-dialogue{margin-top:20px;display:flex;justify-content:flex-end;flex-wrap:wrap;gap:8px}
+  #dialogue-texte{white-space:pre-line}
+  .champ-cle{display:block;margin-top:16px;font-size:14px;font-weight:600}
+  .champ-cle input{
+    display:block;width:100%;margin-top:8px;padding:10px 12px;
+    border:1px solid #426089;border-radius:7px;
+    background:var(--fond);color:var(--texte);
+    font:400 15px/1.4 var(--corps);user-select:text;
+  }
+  .champ-cle input:focus-visible{outline:2px solid var(--accent-clair);outline-offset:2px}
+  #parametres-etat.valide{color:var(--vert)}
+  #parametres-etat.erreur{color:var(--rouge)}
+
+  .notification{
+    position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:2;
+    display:flex;align-items:flex-start;gap:10px;
+    width:min(430px,calc(100% - 24px));
+    padding:10px 12px;
+    border:1px solid #426089;border-radius:13px;
+    background:#172842f5;color:var(--texte);
+    box-shadow:0 8px 24px #080d1bb0;
+    pointer-events:none;
+  }
+  .notification[hidden]{display:none}
+  .notification.erreur{border-color:#a14b60;background:#421e2bf5}
+  .notification-contenu{min-width:0;flex:1;display:grid;gap:2px}
+  .notification strong{font-size:13px;font-weight:600;line-height:1.35}
+  .notification p{
+    font-size:12px;line-height:1.35;color:#c7d5e9;
+    white-space:pre-line;overflow-wrap:anywhere;
+  }
+  .notification.erreur p{color:#ffd1da}
+  .notification-icone{width:18px;flex:none;color:var(--accent-clair);font-size:14px;text-align:center}
+  .notification.en-cours .notification-icone{
+    width:15px;height:15px;margin:1px 2px;
+    border:2px solid #91c5ff45;border-top-color:var(--accent-clair);border-radius:50%;
+    animation:tournant .9s linear infinite;
+  }
+  .notification.erreur .notification-icone{color:var(--rouge)}
+  .notification button{
+    width:26px;height:26px;min-width:26px;margin:-4px -5px -4px 0;padding:0;
+    border:0;border-radius:7px;background:transparent;font-size:18px;pointer-events:auto;
+  }
+  .notification button:hover{background:#ffffff20}
+  .notification button[hidden]{display:none}
+  @keyframes tournant{to{transform:rotate(360deg)}}
+
+  @media (max-width:640px){
+    .etat{display:none}
+    .commandes{gap:7px;padding:8px 10px 10px}
+    button{height:52px;padding:0 12px}
+    .clips{padding:0 10px 10px}
+  }
+  @media (max-width:440px){
+    header{gap:5px;padding-inline:8px}
+    .marque-cef{gap:5px}
+    .marque-cef img{width:26px;height:26px}
+    .marque-cef h1{font-size:18px}
+    button.bouton-entete{padding-inline:7px}
+    button.bouton-icone{padding:0}
+    .libelle-serveur{display:none}
+    #btnParametres{margin-left:auto}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{transition:none!important}
+    .notification.en-cours .notification-icone{animation:none}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="marque-cef">
+    <img src="/assets/cef-logo.png" alt="" width="34" height="34">
+    <h1>CEF VIDÉO</h1>
+    <span class="voyant" id="voyant" role="img" aria-label="Connexion au lecteur local…" title="Connexion au lecteur local…"></span>
+  </div>
+  <div class="etat" id="etat">Connexion…</div>
+  <button type="button" class="bouton-entete bouton-icone" id="btnParametres" aria-label="Paramètres" title="Paramètres">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="m9.5 3-.6 2.1a8 8 0 0 0-1.7 1L5 5.6 2.5 10l1.6 1.5a7 7 0 0 0 0 1L2.5 14 5 18.4l2.2-.5a8 8 0 0 0 1.7 1l.6 2.1h5l.6-2.1a8 8 0 0 0 1.7-1l2.2.5 2.5-4.4-1.6-1.5a7 7 0 0 0 0-1l1.6-1.5L19 5.6l-2.2.5a8 8 0 0 0-1.7-1L14.5 3z"/>
+      <circle cx="12" cy="12" r="3"/>
+    </svg>
+  </button>
+  <button type="button" class="bouton-entete action-principale" id="btnEnvoi" aria-label="Envoyer au serveur">Envoyer<span class="libelle-serveur">&nbsp;au serveur</span></button>
+  <button type="button" class="bouton-entete" id="btnQuitter">Quitter</button>
+</header>
+
+<div class="scene">
+  <video id="video" playsinline preload="auto"></video>
+  <div class="vide" id="vide">
+    <strong>Aucun clip</strong>
+    <span id="videTexte">Déclenche « Sauvegarder la relecture » dans OBS : le clip apparaîtra ici tout seul.</span>
+  </div>
+  <div class="vitesse-hud" id="hud">0,25×</div>
+  <section class="notification" id="notification" hidden>
+    <span class="notification-icone" id="notification-icone" aria-hidden="true"></span>
+    <div class="notification-contenu" role="status" aria-atomic="true">
+      <strong id="notification-titre"></strong>
+      <p id="notification-texte"></p>
+    </div>
+    <button type="button" id="btnFermerNotif" aria-label="Fermer la notification" title="Fermer la notification" hidden>×</button>
+  </section>
+</div>
+
+<div class="piste" id="piste">
+  <div class="zone-fin g"></div>
+  <div class="zone-fin d"></div>
+  <div class="rempli" id="rempli"></div>
+  <div class="marque" style="left:14.28%"></div>
+  <div class="marque" style="left:35.71%"></div>
+  <div class="marque centre" style="left:50%"></div>
+  <div class="marque" style="left:64.28%"></div>
+  <div class="marque" style="left:85.71%"></div>
+  <div class="tete" id="tete"></div>
+</div>
+
+<div class="temps">
+  <span id="tempsCourant">0,000 s</span>
+  <span id="tempsTotal">0,000 s</span>
+</div>
+
+<div class="commandes">
+  <div class="groupe">
+    <button id="btnRejouer" title="Revenir au début (R)">↺</button>
+    <button id="btnRecul" title="Image précédente (←)">◀|</button>
+    <button id="btnLecture" class="principal" title="Lecture / pause (Espace)">▶</button>
+    <button id="btnAvance" title="Image suivante (→)">|▶</button>
+  </div>
+
+  <div class="separateur"></div>
+
+  <div class="groupe">
+    <span class="etiquette">Vitesse</span>
+    <button class="vitesse" data-v="1">1×</button>
+    <button class="vitesse" data-v="0.5">½</button>
+    <button class="vitesse actif" data-v="0.25">¼</button>
+    <button class="vitesse" data-v="0.1">⅒</button>
+  </div>
+
+  <div class="separateur"></div>
+
+  <div class="groupe">
+    <button id="btnBoucle" class="actif" title="Boucle (L)">Boucle</button>
+    <button id="btnAuto" class="actif" title="Charger le nouveau clip automatiquement (N)">Auto</button>
+    <button id="btnPlein" title="Plein écran (F)">⛶</button>
+  </div>
+</div>
+
+<div class="clips" id="clips"></div>
+
+<dialog id="dialogue" aria-labelledby="dialogue-titre" aria-describedby="dialogue-texte">
+  <h2 id="dialogue-titre"></h2>
+  <p id="dialogue-texte" role="status"></p>
+  <div class="actions-dialogue" id="dialogue-actions"></div>
+</dialog>
+
+<dialog id="parametres" aria-labelledby="parametres-titre">
+  <h2 id="parametres-titre">Paramètres</h2>
+  <form id="form-cle" method="post" action="/api/parametres" autocomplete="off">
+    <label class="champ-cle" for="upload-token">Clé d’envoi
+      <input id="upload-token" name="uploadToken" type="password" autocomplete="off" autocapitalize="none"
+        spellcheck="false" required maxlength="128" aria-describedby="parametres-etat">
+    </label>
+    <p id="parametres-etat" role="status"></p>
+    <div class="actions-dialogue">
+      <button type="button" id="btnFermerParametres">Fermer</button>
+      <button type="submit" class="action-principale" id="btnSauverCle">Enregistrer</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+(function(){
+  "use strict";
+
+  const FPS = Number("__FPS__") || 60;
+  const PAS = 1 / FPS;
+  const CLE_LOCALE = "__CLE_LOCALE__";
+
+  const video   = document.getElementById("video");
+  const piste   = document.getElementById("piste");
+  const rempli  = document.getElementById("rempli");
+  const tete    = document.getElementById("tete");
+  const hud     = document.getElementById("hud");
+  const etat    = document.getElementById("etat");
+  const vide    = document.getElementById("vide");
+  const videTxt = document.getElementById("videTexte");
+  const listeEl = document.getElementById("clips");
+  const voyant  = document.getElementById("voyant");
+  const tCourant= document.getElementById("tempsCourant");
+  const tTotal  = document.getElementById("tempsTotal");
+
+  const btnLecture = document.getElementById("btnLecture");
+  const btnBoucle  = document.getElementById("btnBoucle");
+  const btnAuto    = document.getElementById("btnAuto");
+  const btnEnvoi   = document.getElementById("btnEnvoi");
+  const btnQuitter = document.getElementById("btnQuitter");
+  const dialogue   = document.getElementById("dialogue");
+  const dialogueTitre = document.getElementById("dialogue-titre");
+  const dialogueTexte = document.getElementById("dialogue-texte");
+  const dialogueActions = document.getElementById("dialogue-actions");
+  const btnParametres = document.getElementById("btnParametres");
+  const parametres = document.getElementById("parametres");
+  const formCle = document.getElementById("form-cle");
+  const champCle = document.getElementById("upload-token");
+  const parametresEtat = document.getElementById("parametres-etat");
+  const btnSauverCle = document.getElementById("btnSauverCle");
+  const notification = document.getElementById("notification");
+  const notifIcone = document.getElementById("notification-icone");
+  const notifTitre = document.getElementById("notification-titre");
+  const notifTexte = document.getElementById("notification-texte");
+  const btnFermerNotif = document.getElementById("btnFermerNotif");
+  const fermetureNative = window.webkit?.messageHandlers?.replayQuit || window.chrome?.webview;
+
+  let clips = [];
+  let courant = null;
+  let vitesse = 0.25;
+  let auto = true;
+  let premierScan = true;
+  let envoiActif = false;
+  let quitterApresEnvoi = false;
+  let fermetureConfirmee = false;
+  let dossierManquant = null;
+  let modeDialogue = "";
+  let minuterieNotif;
+  let revisionParametres = 0;
+
+  // ------------------------------------------------------------ affichage
+
+  const fmt = s => (isFinite(s) ? s.toFixed(3).replace(".", ",") : "0,000") + " s";
+
+  function majTemps(){
+    const d = video.duration;
+    const t = video.currentTime;
+    tCourant.textContent = fmt(t);
+    tTotal.textContent   = fmt(d);
+    const p = (isFinite(d) && d > 0) ? Math.min(1, t / d) * 100 : 0;
+    rempli.style.width = p + "%";
+    tete.style.left = p + "%";
+  }
+
+  function majHud(){
+    const libelles = {1:"1×", 0.5:"½ ×", 0.25:"¼ ×", 0.1:"⅒ ×"};
+    hud.textContent = libelles[vitesse] || vitesse + "×";
+  }
+
+  function majBoutonLecture(){
+    btnLecture.textContent = video.paused ? "▶" : "❚❚";
+  }
+
+  function afficherVoyant(disponible){
+    const titre = disponible ? "Lecteur local prêt" : "Lecteur local indisponible";
+    if (voyant.title === titre) return;
+    voyant.classList.toggle("disponible", disponible);
+    voyant.title = titre;
+    voyant.setAttribute("aria-label", titre);
+  }
+
+  function messageVide(titre, texte, alerte){
+    vide.classList.remove("cache");
+    vide.classList.toggle("alerte", !!alerte);
+    vide.querySelector("strong").textContent = titre;
+    videTxt.textContent = texte;
+  }
+
+  // -------------------------------------------------------------- lecture
+
+  function charger(nom, lire){
+    courant = nom;
+    video.src = "/clip/" + encodeURIComponent(nom);
+    video.playbackRate = vitesse;
+    video.load();
+    vide.classList.add("cache");
+    const titre = document.createElement("b");
+    titre.textContent = nom;
+    etat.replaceChildren(titre);
+    dessinerClips();
+    if (lire !== false){
+      video.play().catch(()=>{ majBoutonLecture(); });
+    }
+  }
+
+  function pas(sens){
+    if (!video.src || !isFinite(video.duration)) return;
+    video.pause();
+    const cible = video.currentTime + sens * PAS;
+    video.currentTime = Math.max(0, Math.min(video.duration - 0.0005, cible));
+  }
+
+  function saut(secondes){
+    if (!video.src || !isFinite(video.duration)) return;
+    video.currentTime = Math.max(0, Math.min(video.duration - 0.0005,
+                                            video.currentTime + secondes));
+  }
+
+  function basculerLecture(){
+    if (!video.src) return;
+    if (video.paused){
+      video.playbackRate = vitesse;
+      video.play().catch(()=>{});
+    } else {
+      video.pause();
+    }
+  }
+
+  function reglerVitesse(v){
+    vitesse = v;
+    video.playbackRate = v;
+    document.querySelectorAll(".vitesse").forEach(b => {
+      b.classList.toggle("actif", Number(b.dataset.v) === v);
+    });
+    majHud();
+  }
+
+  // --------------------------------------------------------------- piste
+
+  let glisse = false;
+  function chercher(ev){
+    if (!isFinite(video.duration)) return;
+    const r = piste.getBoundingClientRect();
+    const x = Math.max(0, Math.min(r.width, ev.clientX - r.left));
+    video.currentTime = (x / r.width) * video.duration;
+    majTemps();
+  }
+  piste.addEventListener("pointerdown", e => {
+    glisse = true; piste.setPointerCapture(e.pointerId);
+    video.pause(); chercher(e);
+  });
+  piste.addEventListener("pointermove", e => { if (glisse) chercher(e); });
+  piste.addEventListener("pointerup",   e => { glisse = false; });
+  piste.addEventListener("pointercancel", () => { glisse = false; });
+
+  // --------------------------------------------------------------- clips
+
+  function dessinerClips(){
+    listeEl.innerHTML = "";
+    clips.forEach((c, i) => {
+      const b = document.createElement("button");
+      b.textContent = (i === 0 ? "▸ " : "") + c.heure;
+      b.title = c.nom;
+      b.classList.toggle("actif", c.nom === courant);
+      b.addEventListener("click", () => charger(c.nom, true));
+      listeEl.appendChild(b);
+    });
+  }
+
+  function afficherDialogue(mode, titre, texte, actions = []){
+    modeDialogue = mode;
+    dialogueTitre.textContent = titre;
+    dialogueTexte.textContent = texte;
+    dialogueActions.replaceChildren(...actions.map(action => {
+      const bouton = document.createElement("button");
+      bouton.type = "button";
+      bouton.textContent = action.libelle;
+      if (action.principale) bouton.className = "action-principale";
+      bouton.addEventListener("click", action.cliquer);
+      return bouton;
+    }));
+    if (!dialogue.open) dialogue.showModal();
+  }
+
+  function fermerDialogue(){
+    dialogue.close();
+    modeDialogue = "";
+  }
+
+  async function api(route, envoyer = false, corps){
+    const options = {cache: "no-store"};
+    if (envoyer){
+      options.method = "POST";
+      options.headers = {"X-Replay-Local": CLE_LOCALE};
+      if (corps !== undefined){
+        options.headers["Content-Type"] = "application/json";
+        options.body = JSON.stringify(corps);
+      }
+    }
+    const reponse = await fetch(route, options);
+    const donnees = await reponse.json();
+    if (!reponse.ok) throw new Error(donnees.error || "Le lecteur local ne répond pas.");
+    return donnees;
+  }
+
+  function afficherEtatParametres(texte, statut = ""){
+    parametresEtat.textContent = texte;
+    parametresEtat.classList.toggle("valide", statut === "valid");
+    parametresEtat.classList.toggle("erreur", statut === "invalid");
+  }
+
+  function afficherStatutCle(statut, enregistree = false){
+    const messages = {
+      valid: "Clé active. CEF Vidéo accepte les envois depuis ce lecteur.",
+      invalid: "Clé refusée. Vérifie qu’elle est active dans l’espace admin.",
+      missing: "Aucune clé d’envoi configurée.",
+      unavailable: "Vérification indisponible. Vérifie la connexion et rouvre les paramètres."
+    };
+    const prefixe = enregistree && statut === "unavailable" ? "Clé enregistrée. " : "";
+    afficherEtatParametres(prefixe + (messages[statut] || messages.unavailable), statut);
+  }
+
+  async function ouvrirParametres(){
+    const revision = ++revisionParametres;
+    formCle.reset();
+    afficherEtatParametres("Vérification de la clé…");
+    parametres.showModal();
+    btnSauverCle.disabled = false;
+    try {
+      const reponse = await api("/api/parametres/verifier", true);
+      if (revision === revisionParametres && parametres.open) afficherStatutCle(reponse.status);
+    } catch (erreur) {
+      if (revision === revisionParametres && parametres.open) afficherEtatParametres(erreur.message, "invalid");
+    }
+  }
+
+  function fermerParametres(){
+    formCle.reset();
+    parametres.close();
+  }
+
+  async function enregistrerCle(evenement){
+    evenement.preventDefault();
+    const revision = ++revisionParametres;
+    const uploadToken = champCle.value.trim();
+    if (!/^[A-Za-z0-9_-]{32,128}$/.test(uploadToken)){
+      afficherEtatParametres("Saisis une clé d’envoi complète.", "invalid");
+      return;
+    }
+    btnSauverCle.disabled = true;
+    afficherEtatParametres("Vérification de la clé…");
+    try {
+      const reponse = await api("/api/parametres", true, {uploadToken});
+      if (revision === revisionParametres && parametres.open){
+        formCle.reset();
+        afficherStatutCle(reponse.status, true);
+      }
+    } catch (erreur) {
+      if (revision === revisionParametres && parametres.open) afficherEtatParametres(erreur.message, "invalid");
+    } finally {
+      if (revision === revisionParametres) btnSauverCle.disabled = false;
+    }
+  }
+
+  btnParametres.addEventListener("click", ouvrirParametres);
+  formCle.addEventListener("submit", enregistrerCle);
+  document.getElementById("btnFermerParametres").addEventListener("click", fermerParametres);
+  parametres.addEventListener("close", () => {
+    if (!parametres.open){
+      revisionParametres++;
+      formCle.reset();
+    }
+  });
+
+  function fermerNotification(){
+    clearTimeout(minuterieNotif);
+    notification.hidden = true;
+  }
+
+  function afficherNotification(type, titre, texte){
+    clearTimeout(minuterieNotif);
+    const progression = type === "en-cours";
+    const erreur = type === "erreur";
+    notification.classList.toggle("en-cours", progression);
+    notification.classList.toggle("erreur", erreur);
+    notifIcone.textContent = progression ? "" : erreur ? "!" : "✓";
+    btnFermerNotif.hidden = progression;
+    notification.hidden = false;
+    if (notifTitre.textContent !== titre) notifTitre.textContent = titre;
+    if (notifTexte.textContent !== texte) notifTexte.textContent = texte;
+    if (type === "succes") minuterieNotif = setTimeout(fermerNotification, 7000);
+  }
+
+  btnFermerNotif.addEventListener("click", fermerNotification);
+
+  function afficherDossierManquant(){
+    if (dossierManquant === null || envoiActif || parametres.open) return;
+    afficherDialogue("dossier", "Dossier vidéo introuvable",
+      "Vérifie le dossier OBS, puis redémarre le lecteur.\n" + dossierManquant, [
+        {libelle: "Quitter", cliquer: demanderDeQuitter},
+        {libelle: "Redémarrer", principale: true, cliquer: redemarrer}
+      ]);
+  }
+
+  async function redemarrer(){
+    try {
+      await api("/api/redemarrer", true);
+      location.reload();
+    } catch (erreur) {
+      dialogueTexte.textContent = erreur.message;
+    }
+  }
+
+  async function quitter(){
+    try {
+      if (fermetureNative){
+        fermetureConfirmee = true;
+        fermetureNative.postMessage("quit");
+        return;
+      }
+      await api("/api/quitter", true);
+      fermetureConfirmee = true;
+      afficherDialogue("ferme", "CEF Vidéo fermé", "Tu peux fermer cet onglet.");
+    } catch (erreur) {
+      fermetureConfirmee = false;
+      afficherDialogue("erreur", "Fermeture impossible", erreur.message,
+        [{libelle: "Fermer", cliquer: fermerDialogue}]);
+    }
+  }
+
+  function demanderDeQuitter(){
+    if (fermetureConfirmee) return;
+    if (parametres.open) fermerParametres();
+    if (envoiActif){
+      afficherDialogue("quitter", "Un envoi est en cours",
+        "Tu peux continuer à utiliser le lecteur pendant l’envoi.", [
+          {libelle: "Rester dans le lecteur", cliquer: () => {
+            quitterApresEnvoi = false;
+            fermerDialogue();
+          }},
+          {libelle: "Quitter après l’envoi", principale: true, cliquer: () => {
+            quitterApresEnvoi = true;
+            fermerDialogue();
+          }}
+        ]);
+      return;
+    }
+    afficherDialogue("quitter", "Enregistrer les clips sur le serveur avant de quitter ?",
+      "Tu peux reprendre plus tard les clips restés sur cet ordinateur.", [
+        {libelle: "Annuler", cliquer: () => {
+          fermerDialogue();
+          afficherDossierManquant();
+        }},
+        {libelle: "Quitter sans envoyer", cliquer: quitter},
+        {libelle: "Envoyer et quitter", principale: true, cliquer: () => envoyerClips(true)}
+      ]);
+  }
+
+  window.demanderDeQuitter = demanderDeQuitter;
+  dialogue.addEventListener("cancel", evenement => {
+    evenement.preventDefault();
+    if (modeDialogue === "quitter" || modeDialogue === "erreur"){
+      fermerDialogue();
+      afficherDossierManquant();
+    }
+  });
+  window.addEventListener("beforeunload", evenement => {
+    if (fermetureNative || fermetureConfirmee || (!clips.length && !envoiActif)) return;
+    evenement.preventDefault();
+    evenement.returnValue = "";
+  });
+
+  function bilanEnvoi(rapport){
+    const stats = [];
+    if (rapport.uploaded) stats.push(`${rapport.uploaded} envoyé(s)`);
+    if (rapport.duplicates) stats.push(`${rapport.duplicates} déjà sur le serveur`);
+    if (rapport.deleted) stats.push(`${rapport.deleted} copie(s) locale(s) supprimée(s)`);
+    if (rapport.skipped) stats.push(`${rapport.skipped} pas encore prêt(s)`);
+    const lignes = stats.length ? [stats.join(" · ")] : [];
+    if (rapport.errors?.length){
+      const [premiere] = rapport.errors;
+      const supplement = rapport.errors.length - 1;
+      lignes.push(premiere.message + (supplement ? ` (+${supplement})` : ""));
+    }
+    return lignes.join("\n") || "Aucun clip à envoyer dans le dossier OBS.";
+  }
+
+  async function envoyerClips(puisQuitter = false){
+    if (envoiActif) return;
+    envoiActif = true;
+    quitterApresEnvoi = puisQuitter;
+    btnEnvoi.disabled = true;
+    if (modeDialogue === "quitter") fermerDialogue();
+    afficherNotification("en-cours", "Envoi vers CEF Vidéo", "Préparation des clips…");
+    let rapport;
+    try {
+      let etatEnvoi = await api("/api/envoi", true);
+      while (etatEnvoi.running){
+        const progression = etatEnvoi.report;
+        if (progression?.total){
+          const detail = `${progression.processed} / ${progression.total} clips traités`
+            + (quitterApresEnvoi ? " · puis fermeture" : "");
+          afficherNotification("en-cours", "Envoi vers CEF Vidéo", detail);
+        }
+        await new Promise(resoudre => setTimeout(resoudre, 550));
+        etatEnvoi = await api("/api/envoi");
+      }
+      rapport = etatEnvoi.report;
+    } catch (erreur) {
+      rapport = {status: "error", errors: [{message: erreur.message}]};
+    } finally {
+      envoiActif = false;
+      btnEnvoi.disabled = dossierManquant !== null;
+    }
+
+    const fermerApresSucces = quitterApresEnvoi;
+    quitterApresEnvoi = false;
+    const succes = rapport?.status === "ok" && !rapport.skipped;
+    if (fermerApresSucces && succes){
+      fermerNotification();
+      await quitter();
+      return;
+    }
+    const titre = rapport?.status === "network" ? "Connexion Internet indisponible"
+      : succes ? "Envoi terminé"
+      : "Envoi incomplet";
+    afficherNotification(succes ? "succes" : "erreur", titre, bilanEnvoi(rapport || {}));
+    if (modeDialogue === "quitter") fermerDialogue();
+    if (rapport?.deleted && courant){
+      try {
+        const lecture = await fetch("/clip/" + encodeURIComponent(courant), {method:"HEAD"});
+        if (lecture.status === 404){
+          clips = [];
+          courant = null;
+          premierScan = true;
+        }
+      } catch (_) {}
+    }
+    sonder();
+  }
+
+  btnEnvoi.addEventListener("click", () => envoyerClips());
+  btnQuitter.addEventListener("click", demanderDeQuitter);
+
+  async function sonder(){
+    if (fermetureConfirmee) return;
+    try{
+      const r = await fetch("/api/clips", {cache:"no-store"});
+      if (!r.ok) throw new Error("réponse " + r.status);
+      const d = await r.json();
+      if (!d.dossierDisponible){
+        afficherVoyant(false);
+        etat.textContent = "Dossier vidéo introuvable";
+        dossierManquant = d.dossier;
+        btnEnvoi.disabled = true;
+        clips = [];
+        courant = null;
+        video.removeAttribute("src");
+        messageVide("Dossier vidéo introuvable", d.dossier, true);
+        dessinerClips();
+        if (!dialogue.open) afficherDossierManquant();
+        return;
+      }
+      if (dossierManquant !== null){
+        dossierManquant = null;
+        btnEnvoi.disabled = envoiActif;
+        if (modeDialogue === "dossier") fermerDialogue();
+      }
+      afficherVoyant(true);
+
+      const nouveau = d.clips.length && (!clips.length || d.clips[0].nom !== clips[0].nom);
+      clips = d.clips;
+
+      if (!clips.length){
+        courant = null;
+        video.removeAttribute("src");
+        etat.textContent = "Aucun clip";
+        messageVide("Aucun clip",
+          "Déclenche « Sauvegarder la relecture » dans OBS. Dossier surveillé : " + d.dossier);
+        dessinerClips();
+        return;
+      }
+
+      if (nouveau && (auto || premierScan)){
+        charger(clips[0].nom, true);
+      } else {
+        dessinerClips();
+      }
+      premierScan = false;
+
+    } catch (e){
+      afficherVoyant(false);
+      etat.textContent = "Serveur injoignable";
+    }
+  }
+
+  // ------------------------------------------------------------ écouteurs
+
+  video.addEventListener("timeupdate", majTemps);
+  video.addEventListener("seeked",     majTemps);
+  video.addEventListener("loadedmetadata", () => {
+    video.playbackRate = vitesse;
+    majTemps();
+  });
+  video.addEventListener("play",  majBoutonLecture);
+  video.addEventListener("pause", majBoutonLecture);
+  video.addEventListener("ended", () => {
+    if (btnBoucle.classList.contains("actif")){
+      video.currentTime = 0;
+      video.play().catch(()=>{});
+    }
+    majBoutonLecture();
+  });
+  video.addEventListener("ratechange", () => {
+    // Certains navigateurs réinitialisent la vitesse après un seek.
+    if (video.playbackRate !== vitesse) video.playbackRate = vitesse;
+  });
+  video.addEventListener("error", () => {
+    messageVide("Format illisible",
+      "Le navigateur ne sait pas lire ce fichier. Dans OBS → Sortie → Enregistrement, "
+      + "choisis le format MP4 et l'encodeur H.264 (audio AAC).", true);
+  });
+
+  document.getElementById("btnLecture").addEventListener("click", basculerLecture);
+  document.getElementById("btnRecul").addEventListener("click", () => pas(-1));
+  document.getElementById("btnAvance").addEventListener("click", () => pas(1));
+  document.getElementById("btnRejouer").addEventListener("click", () => {
+    video.currentTime = 0; video.play().catch(()=>{});
+  });
+  document.querySelectorAll(".vitesse").forEach(b => {
+    b.addEventListener("click", () => reglerVitesse(Number(b.dataset.v)));
+  });
+  btnBoucle.addEventListener("click", () => {
+    btnBoucle.classList.toggle("actif");
+  });
+  btnAuto.addEventListener("click", () => {
+    auto = !auto;
+    btnAuto.classList.toggle("actif", auto);
+  });
+  document.getElementById("btnPlein").addEventListener("click", () => {
+    if (document.fullscreenElement) document.exitFullscreen();
+    else document.documentElement.requestFullscreen().catch(()=>{});
+  });
+
+  document.addEventListener("keydown", e => {
+    if (dialogue.open || parametres.open || e.metaKey || e.ctrlKey || e.altKey ||
+        e.target.tagName === "INPUT" ||
+        (e.key === " " && (e.target === btnParametres || e.target === btnFermerNotif))) return;
+    const k = e.key.toLowerCase();
+    if (k === " "){ e.preventDefault(); basculerLecture(); }
+    else if (e.key === "ArrowLeft"){  e.preventDefault(); e.shiftKey ? saut(-0.5) : pas(-1); }
+    else if (e.key === "ArrowRight"){ e.preventDefault(); e.shiftKey ? saut(0.5)  : pas(1);  }
+    else if (k === "1") reglerVitesse(1);
+    else if (k === "2") reglerVitesse(0.5);
+    else if (k === "3") reglerVitesse(0.25);
+    else if (k === "4") reglerVitesse(0.1);
+    else if (k === "l") btnBoucle.click();
+    else if (k === "r") document.getElementById("btnRejouer").click();
+    else if (k === "n" && clips.length) charger(clips[0].nom, true);
+    else if (k === "f") document.getElementById("btnPlein").click();
+  });
+
+  majHud();
+  majBoutonLecture();
+  sonder();
+  setInterval(sonder, 800);
+})();
+</script>
+</body>
+</html>

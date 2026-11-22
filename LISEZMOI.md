@@ -1,5 +1,12 @@
 # Replay escrime — installation
 
+## Édition CEF Vidéo
+
+Le dossier [cef-video](cef-video/LISEZMOI.md) contient le lecteur du club,
+avec une fenêtre dédiée pour Windows et macOS et l’envoi vers CEF Vidéo.
+
+## Lecteur d’origine
+
 Trois fichiers, à garder **dans le même dossier** :
 `serveur_replay.py`, `lecteur.html`, `Lancer le replay.bat`.
 
